@@ -445,6 +445,12 @@ export interface ExperimentalConfig {
    * Enables `fetch` requests to be proxied to the experimental text proxy server
    */
   testProxy?: boolean
+
+  /**
+   * Render <style> tags inline in the HTML for imported CSS assets.
+   * Supports app-router in production mode only.
+   */
+  inlineCss?: boolean
 }
 
 export type ExportPathMap = {
@@ -948,6 +954,7 @@ export const defaultConfig: NextConfig = {
       dynamic: 30,
       static: 300,
     },
+    inlineCss: false,
   },
 }
 

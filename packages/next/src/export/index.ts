@@ -426,6 +426,7 @@ export async function exportAppImpl(
       missingSuspenseWithCSRBailout:
         nextConfig.experimental.missingSuspenseWithCSRBailout === true,
       swrDelta: nextConfig.experimental.swrDelta,
+      inlineCss: nextConfig.experimental.inlineCss ?? false,
     },
   }
 
