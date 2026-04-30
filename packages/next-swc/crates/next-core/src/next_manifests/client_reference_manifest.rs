@@ -4,7 +4,7 @@ use turbo_tasks::{TryJoinIterExt, ValueToString, Vc};
 use turbo_tasks_fs::{File, FileSystemPath};
 use turbopack_binding::turbopack::{
     core::{
-        asset::AssetContent,
+        asset::{Asset, AssetContent},
         chunk::{
             availability_info::AvailabilityInfo, ChunkItem, ChunkItemExt, ChunkableModule,
             ModuleId as TurbopackModuleId,
@@ -15,8 +15,9 @@ use turbopack_binding::turbopack::{
     ecmascript::{chunk::EcmascriptChunkingContext, utils::StringifyJs},
 };
 
-use super::{ClientReferenceManifest, ManifestNode, ManifestNodeEntry, ModuleId};
+use super::{ClientReferenceManifest, CssResource, ManifestNode, ManifestNodeEntry, ModuleId};
 use crate::{
+    mode::NextMode,
     next_app::ClientReferencesChunks,
     next_client_reference::{ClientReferenceGraphResult, ClientReferenceType},
     next_config::NextConfig,
@@ -36,6 +37,7 @@ impl ClientReferenceManifest {
         ssr_chunking_context: Option<Vc<Box<dyn EcmascriptChunkingContext>>>,
         next_config: Vc<NextConfig>,
         runtime: NextRuntime,
+        mode: Vc<NextMode>,
     ) -> Result<Vc<Box<dyn OutputAsset>>> {
         let mut entry_manifest: ClientReferenceManifest = Default::default();
         entry_manifest.module_loading.prefix = next_config
@@ -187,40 +189,66 @@ impl ClientReferenceManifest {
         for (server_component, client_chunks) in
             client_references_chunks.layout_segment_client_chunks.iter()
         {
-            let client_chunks = &client_chunks.await?;
-
-            let client_chunks_paths = client_chunks
-                .iter()
-                .map(|chunk| chunk.ident().path())
-                .try_join()
-                .await?;
-
             let server_component_name = server_component
                 .server_path()
                 .with_extension("".to_string())
                 .to_string()
                 .await?;
 
-            let entry_css_files = entry_manifest
-                .entry_css_files
-                .entry(server_component_name.clone_value())
-                .or_default();
-
+            let mut entry_css_files_with_chunk = Vec::new();
             let entry_js_files = entry_manifest
                 .entry_js_files
                 .entry(server_component_name.clone_value())
                 .or_default();
 
-            for chunk_path in client_chunks_paths {
+            let client_chunks = &client_chunks.await?;
+            let client_chunks_with_path = client_chunks
+                .iter()
+                .map(|chunk| async move { Ok((chunk, chunk.ident().path().await?)) })
+                .try_join()
+                .await?;
+
+            for (chunk, chunk_path) in client_chunks_with_path {
                 if let Some(path) = client_relative_path.get_path_to(&chunk_path) {
                     let path = path.to_string();
                     if chunk_path.extension_ref() == Some("css") {
-                        entry_css_files.insert(path);
+                        entry_css_files_with_chunk.push((path, chunk));
                     } else {
                         entry_js_files.insert(path);
                     }
                 }
             }
+
+            let inlined = next_config.await?.experimental.inline_css.unwrap_or(false)
+                && mode.await?.is_production();
+            let entry_css_files_vec = entry_css_files_with_chunk
+                .into_iter()
+                .map(|(path, chunk)| async {
+                    let content = if inlined {
+                        if let Some(content_file) =
+                            chunk.content().file_content().await?.as_content()
+                        {
+                            Some(content_file.content().to_str()?.into())
+                        } else {
+                            Some("".into())
+                        }
+                    } else {
+                        None
+                    };
+                    Ok(CssResource {
+                        path,
+                        inlined,
+                        content,
+                    })
+                })
+                .try_join()
+                .await?;
+
+            let entry_css_files = entry_manifest
+                .entry_css_files
+                .entry(server_component_name.clone_value())
+                .or_default();
+            entry_css_files.extend(entry_css_files_vec);
         }
 
         let client_reference_manifest_json = serde_json::to_string(&entry_manifest).unwrap();

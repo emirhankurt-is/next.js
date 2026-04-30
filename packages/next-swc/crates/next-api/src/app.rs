@@ -918,6 +918,7 @@ impl AppEndpoint {
                 ssr_chunking_context,
                 this.app_project.project().next_config(),
                 runtime,
+                this.app_project.project().next_mode(),
             );
             server_assets.push(entry_manifest);
 
