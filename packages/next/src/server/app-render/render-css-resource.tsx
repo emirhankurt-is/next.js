@@ -42,9 +42,8 @@ export function renderCssResource(
           // @ts-ignore
           precedence={precedence}
           href={fullHref}
-        >
-          {entryCssFile.content}
-        </style>
+          dangerouslySetInnerHTML={{ __html: entryCssFile.content }}
+        />
       )
     }
 
