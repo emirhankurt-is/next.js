@@ -136,6 +136,7 @@ export type AppRenderContext = AppRenderBaseContext & {
   getDynamicParamFromSegment: GetDynamicParamFromSegment
   query: NextParsedUrlQuery
   isPrefetch: boolean
+  isRSC: boolean
   requestTimestamp: number
   appUsingSizeAdjustment: boolean
   flightRouterState?: FlightRouterState
@@ -864,6 +865,7 @@ async function renderToHTMLOrFlightImpl(
     getDynamicParamFromSegment,
     query,
     isPrefetch: isPrefetchRSCRequest,
+    isRSC: isRSCRequest,
     requestTimestamp,
     appUsingSizeAdjustment,
     flightRouterState: shouldProvideFlightRouterState
