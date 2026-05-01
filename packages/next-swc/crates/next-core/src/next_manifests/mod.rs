@@ -246,10 +246,10 @@ pub struct ClientReferenceManifest {
 
 #[derive(Serialize, Debug, Clone, Eq, Hash, PartialEq)]
 pub struct CssResource {
-    pub path: RcStr,
+    pub path: String,
     pub inlined: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<RcStr>,
+    pub content: Option<String>,
 }
 
 #[derive(Serialize, Default, Debug)]
